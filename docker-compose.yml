@@ -1,0 +1,29 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: axlib
+      POSTGRES_USER: axlib
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?.env 에 POSTGRES_PASSWORD 를 지정하세요}
+    volumes:
+      - ./volumes/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U axlib -d axlib"]
+      interval: 5s
+      retries: 10
+
+  app:
+    image: ax-lib:${APP_VERSION:-latest}
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://axlib:${POSTGRES_PASSWORD}@db:5432/axlib
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    volumes:
+      - ./volumes/uploads:/data/uploads
+    depends_on:
+      db:
+        condition: service_healthy

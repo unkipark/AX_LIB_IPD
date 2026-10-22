@@ -1,0 +1,190 @@
+@import '@fontsource-variable/ibm-plex-sans';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
+
+@tailwind base;
+@tailwind utilities;
+
+/* ────────────────────────────────────────────────────────────────
+   테마 토큰
+   값은 RGB 채널(공백 구분)입니다. Tailwind 가 rgb(var(--x) / <alpha>)
+   형태로 읽기 때문에 bg-series2/10 같은 투명도 변형이 그대로 동작합니다.
+
+   축이 둘로 나뉩니다.
+     data-theme   = light | dark | contrast   (UI 크롬)
+     data-palette = okabe | tol               (데이터/의미 색)
+   ──────────────────────────────────────────────────────────────── */
+
+/* ── 크롬: Dark ── */
+:root,
+[data-theme='dark'] {
+  --c-canvas: 14 20 27;
+  --c-panel: 21 29 38;
+  --c-panel-raised: 28 40 54;
+  --c-line: 37 50 64;
+  --c-ink: 205 216 228;
+  --c-ink-muted: 138 156 176;
+  --c-grid: 37 50 64;
+  --c-accent: 62 143 217;
+}
+
+/* ── 크롬: Light ── */
+[data-theme='light'] {
+  --c-canvas: 247 248 250;
+  --c-panel: 255 255 255;
+  --c-panel-raised: 240 243 247;
+  --c-line: 209 216 226;
+  --c-ink: 27 35 45;
+  --c-ink-muted: 85 100 118;
+  --c-grid: 222 228 236;
+  --c-accent: 31 111 235;
+}
+
+/* ── 크롬: High contrast ──
+   본문 대비 14:1 이상. 순수 검정 대신 살짝 뜬 값을 써서 halation 을 줄입니다. */
+[data-theme='contrast'] {
+  --c-canvas: 8 10 14;
+  --c-panel: 16 20 26;
+  --c-panel-raised: 32 38 48;
+  --c-line: 92 104 120;
+  --c-ink: 244 247 250;
+  --c-ink-muted: 186 198 212;
+  --c-grid: 68 80 96;
+  --c-accent: 120 180 255;
+}
+
+/* ── 데이터 색: Okabe–Ito ── */
+[data-palette='okabe'] {
+  --c-series1: 0 114 178;
+  --c-series2: 213 94 0;
+  --c-running: 230 159 0;
+  --c-ok: 0 137 100;
+  --c-fail: 171 82 131;
+}
+[data-theme='dark'][data-palette='okabe'],
+[data-theme='contrast'][data-palette='okabe'] {
+  /* 어두운 배경에서 3:1 을 넘기도록 한 단계 밝힙니다. */
+  --c-series1: 86 180 233;
+  --c-series2: 240 126 33;
+  --c-running: 240 176 30;
+  --c-ok: 45 190 145;
+  --c-fail: 222 146 188;
+}
+
+/* ── 데이터 색: Tol High-contrast ──
+   3색만 써서 어떤 색각 유형에서도 무너지지 않습니다. 흑백 출력도 명도로 구분됩니다. */
+[data-palette='tol'] {
+  --c-series1: 0 68 136;
+  --c-series2: 187 85 102;
+  --c-running: 221 170 51;
+  --c-ok: 0 68 136;
+  --c-fail: 187 85 102;
+}
+[data-theme='dark'][data-palette='tol'],
+[data-theme='contrast'][data-palette='tol'] {
+  --c-series1: 110 170 230;
+  --c-series2: 226 130 146;
+  --c-running: 235 190 80;
+  --c-ok: 110 170 230;
+  --c-fail: 226 130 146;
+}
+
+/* ── 크롬: Claude Light ──
+   따뜻한 중성 그레이. clay(#D97757)는 에이전트를 실행하는 동작에만 씁니다. */
+[data-theme='claude-light'] {
+  --c-canvas: 242 241 236;
+  --c-panel: 252 252 251;
+  --c-panel-raised: 240 239 236;
+  --c-line: 225 224 217;
+  --c-ink: 11 11 11;
+  --c-ink-muted: 82 81 78;
+  --c-grid: 225 224 217;
+  --c-accent: 217 119 87;
+}
+
+/* ── 크롬: Claude Dark ── */
+[data-theme='claude-dark'] {
+  --c-canvas: 26 26 25;
+  --c-panel: 35 35 34;
+  --c-panel-raised: 44 44 42;
+  --c-line: 56 56 53;
+  --c-ink: 240 239 236;
+  --c-ink-muted: 149 148 139;
+  --c-grid: 44 44 42;
+  --c-accent: 217 119 87;
+}
+
+/* ── 데이터 색: Claude (CDS 시리즈) ──
+   파랑·주황 축이 중심이라 적록색약에서도 갈립니다. 다만 Okabe–Ito 처럼
+   전 색각 유형을 대상으로 검증된 세트는 아니므로, 색약 대응이 최우선이면
+   Okabe–Ito 를 쓰세요. */
+[data-palette='claude'] {
+  --c-series1: 42 120 214;
+  --c-series2: 235 104 52;
+  --c-running: 237 161 0;
+  --c-ok: 13 133 92;
+  --c-fail: 199 47 47;
+}
+[data-theme='dark'][data-palette='claude'],
+[data-theme='contrast'][data-palette='claude'],
+[data-theme='claude-dark'][data-palette='claude'] {
+  --c-series1: 57 135 229;
+  --c-series2: 232 124 78;
+  --c-running: 250 178 25;
+  --c-ok: 40 195 140;
+  --c-fail: 230 103 103;
+}
+
+/* Okabe–Ito / Tol 은 Claude Dark 에서도 어두운 배경용 값을 씁니다. */
+[data-theme='claude-dark'][data-palette='okabe'] {
+  --c-series1: 86 180 233;
+  --c-series2: 240 126 33;
+  --c-running: 240 176 30;
+  --c-ok: 45 190 145;
+  --c-fail: 222 146 188;
+}
+[data-theme='claude-dark'][data-palette='tol'] {
+  --c-series1: 110 170 230;
+  --c-series2: 226 130 146;
+  --c-running: 235 190 80;
+  --c-ok: 110 170 230;
+  --c-fail: 226 130 146;
+}
+
+@layer base {
+  html, body, #root { height: 100%; }
+  body {
+    @apply bg-canvas text-ink font-sans antialiased;
+    font-feature-settings: 'tnum' 1;
+  }
+  *:focus-visible {
+    outline: 2px solid rgb(var(--c-accent));
+    outline-offset: 1px;
+  }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: rgb(var(--c-canvas)); }
+  ::-webkit-scrollbar-thumb { background: rgb(var(--c-line)); }
+  ::-webkit-scrollbar-thumb:hover { background: rgb(var(--c-ink-muted)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+/* ── Markdown 본문 (설명·설치 가이드) ── */
+@layer base {
+  .markdown > * + * { margin-top: 0.75em; }
+  .markdown h1, .markdown h2, .markdown h3 { font-weight: 600; margin-top: 1.25em; }
+  .markdown h1 { font-size: 1.25rem; }
+  .markdown h2 { font-size: 1.1rem; }
+  .markdown h3 { font-size: 1rem; }
+  .markdown ul { list-style: disc; padding-left: 1.25rem; }
+  .markdown ol { list-style: decimal; padding-left: 1.25rem; }
+  .markdown a { color: rgb(var(--c-accent)); text-decoration: underline; }
+  .markdown code { font-family: 'IBM Plex Mono', monospace; font-size: 0.85em; background: rgb(var(--c-panel-raised)); padding: 0.1em 0.3em; border-radius: 3px; }
+  .markdown pre { background: rgb(var(--c-panel-raised)); border: 1px solid rgb(var(--c-line)); padding: 0.75rem; border-radius: 3px; overflow-x: auto; }
+  .markdown pre code { background: none; padding: 0; }
+  .markdown blockquote { border-left: 3px solid rgb(var(--c-line)); padding-left: 0.75rem; color: rgb(var(--c-ink-muted)); }
+  .markdown table { border-collapse: collapse; }
+  .markdown th, .markdown td { border: 1px solid rgb(var(--c-line)); padding: 0.25rem 0.5rem; }
+}
