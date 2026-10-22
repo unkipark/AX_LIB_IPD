@@ -4,6 +4,7 @@ import { Layout } from '@/components/Layout'
 import { ApiError, api, setAuthMode } from '@/lib/api'
 import { useTheme } from '@/lib/theme'
 import { AdminUsersPage } from '@/pages/AdminUsersPage'
+import { AgentPage } from '@/pages/AgentPage'
 import { ArtifactDetailPage } from '@/pages/ArtifactDetailPage'
 import { ArtifactFormPage } from '@/pages/ArtifactFormPage'
 import { CatalogPage } from '@/pages/CatalogPage'
@@ -38,6 +39,8 @@ export default function App() {
         <Route path="artifacts/new" element={<ArtifactFormPage />} />
         <Route path="artifacts/:id" element={<ArtifactDetailPage />} />
         <Route path="artifacts/:id/edit" element={<ArtifactFormPage />} />
+        <Route path="agent" element={<AgentPage />} />
+        <Route path="agent/:conversationId" element={<AgentPage />} />
         <Route path="me" element={<ProfilePage user={user} config={config.data} />} />
         {user.role === 'admin' && <Route path="admin/users" element={<AdminUsersPage me={user} config={config.data} />} />}
         <Route path="*" element={<p className="text-sm text-inkMuted">페이지를 찾을 수 없습니다.</p>} />

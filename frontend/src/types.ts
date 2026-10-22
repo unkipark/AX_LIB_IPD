@@ -141,3 +141,38 @@ export interface AdminUser {
   lastLoginAt: string | null
   artifactCount: number
 }
+
+export interface AgentStatus {
+  enabled: boolean
+  reason: string
+  model: string
+}
+
+export interface AgentToolCall {
+  name: string
+  input: Record<string, unknown>
+  isError?: boolean
+}
+
+export interface AgentMessage {
+  id: number | string
+  role: 'user' | 'assistant'
+  content: string
+  tools: AgentToolCall[]
+  error: string | null
+  pending?: boolean
+}
+
+export interface AgentConversationSummary {
+  id: string
+  title: string
+  updatedAt: string
+}
+
+export type AgentEvent =
+  | { type: 'status'; text: string }
+  | { type: 'text'; delta: string }
+  | { type: 'tool'; name: string; input: Record<string, unknown> }
+  | { type: 'tool_done'; name: string; isError: boolean }
+  | { type: 'done' }
+  | { type: 'error'; message: string }

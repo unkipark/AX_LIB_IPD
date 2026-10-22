@@ -61,6 +61,22 @@ class Settings(BaseSettings):
     oidc_claim_email: str = "email"
     oidc_claim_department: str = "department"
 
+    # ---------- AI 도우미 (탐색·추천 Agent) ----------
+    # 사내 LLM 게이트웨이(Anthropic API 형식)에 붙은 Claude Code 를 서브프로세스로 실행합니다.
+    agent_enabled: bool = False
+    claude_bin: str = "claude"
+    anthropic_base_url: str = ""
+    anthropic_auth_token: str = ""
+    anthropic_model: str = ""
+    # 동시에 돌릴 수 있는 대화 수. 넘치면 대기열에서 기다립니다.
+    agent_max_concurrent: int = 3
+    # 한 번의 질문(도구 호출 포함)에 허용하는 최대 시간(초)
+    agent_timeout_sec: int = 180
+    # 대화별 작업 폴더와 Claude Code 세션 저장 위치
+    agent_work_dir: Path = Path("./data/agent")
+    # Claude Code 가 MCP 도구를 부를 때 쓰는 앱 내부 주소 (같은 서버/컨테이너 안)
+    internal_base_url: str = "http://127.0.0.1:8000"
+
     # 관리자 지정. 로그인 시 사번(또는 OIDC id claim)이 목록에 있으면 admin 권한이 붙습니다.
     admin_ids: str = ""
 

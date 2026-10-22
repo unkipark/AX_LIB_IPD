@@ -1,8 +1,10 @@
+import { useQuery } from '@tanstack/react-query'
 import { NavLink, Outlet } from 'react-router-dom'
 import { Library, LogOut, Plus } from 'lucide-react'
 import { ThemeSelector } from '@/components/ThemeSelector'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import { api } from '@/lib/api'
 import type { useTheme } from '@/lib/theme'
 import { cn } from '@/lib/utils'
 import type { User } from '@/types'
@@ -13,7 +15,12 @@ const NAV = [
 ]
 
 export function Layout({ user, theme }: { user: User; theme: ReturnType<typeof useTheme> }) {
-  const nav = user.role === 'admin' ? [...NAV, { to: '/admin/users', label: '사용자 관리', end: false }] : NAV
+  const agent = useQuery({ queryKey: ['agentStatus'], queryFn: api.agentStatus, staleTime: 60_000 })
+  const nav = [
+    ...NAV,
+    ...(agent.data?.enabled ? [{ to: '/agent', label: 'AI 도우미', end: false }] : []),
+    ...(user.role === 'admin' ? [{ to: '/admin/users', label: '사용자 관리', end: false }] : []),
+  ]
   return (
     <div className="flex min-h-full flex-col">
       <header className="sticky top-0 z-10 flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-line bg-panel px-4 py-2.5">

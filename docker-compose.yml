@@ -24,6 +24,8 @@ services:
       - "${APP_PORT:-8000}:8000"
     volumes:
       - ./volumes/uploads:/data/uploads
+      # AI 도우미 대화 세션(Claude Code). 지우면 기존 대화를 이어서 질문할 수 없습니다.
+      - ./volumes/agent:/data/agent
     depends_on:
       db:
         condition: service_healthy

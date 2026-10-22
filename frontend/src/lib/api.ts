@@ -1,5 +1,9 @@
 import type {
   AdminUser,
+  AgentConversationSummary,
+  AgentEvent,
+  AgentMessage,
+  AgentStatus,
   ArtifactDetail,
   ArtifactInput,
   ArtifactPage,
@@ -111,5 +115,50 @@ export const api = {
     return request<FileInfo>(`/artifacts/${artifactId}/files`, { method: 'POST', body: form })
   },
   removeFile: (fileId: number) => request<void>(`/files/${fileId}`, { method: 'DELETE' }),
+
+  agentStatus: () => request<AgentStatus>('/agent/status'),
+  agentConversations: () => request<AgentConversationSummary[]>('/agent/conversations'),
+  agentCreate: () => request<AgentConversationSummary>('/agent/conversations', { method: 'POST' }),
+  agentGet: (id: string) =>
+    request<AgentConversationSummary & { messages: AgentMessage[]; running: boolean }>(`/agent/conversations/${id}`),
+  agentCancel: (id: string) => request<void>(`/agent/conversations/${id}/cancel`, { method: 'POST' }),
+  agentDelete: (id: string) => request<void>(`/agent/conversations/${id}`, { method: 'DELETE' }),
   fileUrl: (fileId: number) => `${BASE}/files/${fileId}`,
+}
+
+/** 질문을 보내고 답변 이벤트(SSE)를 하나씩 onEvent 로 넘깁니다. EventSource 는 GET 만 되므로 fetch 로 읽습니다. */
+export async function streamAgentMessage(
+  conversationId: string,
+  content: string,
+  onEvent: (e: AgentEvent) => void,
+  signal?: AbortSignal
+) {
+  const res = await fetch(`${BASE}/agent/conversations/${conversationId}/messages`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content }),
+    signal,
+  })
+  if (res.status === 401) {
+    goLogin()
+    throw new ApiError(401, '로그인이 필요합니다')
+  }
+  if (!res.ok || !res.body) {
+    const body = await res.json().catch(() => ({}))
+    throw new ApiError(res.status, typeof body.detail === 'string' ? body.detail : `${res.status} ${res.statusText}`)
+  }
+  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader()
+  let buffer = ''
+  for (;;) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buffer += value
+    let sep: number
+    while ((sep = buffer.indexOf('\n\n')) >= 0) {
+      const frame = buffer.slice(0, sep)
+      buffer = buffer.slice(sep + 2)
+      const data = frame.split('\n').filter((l) => l.startsWith('data: ')).map((l) => l.slice(6)).join('\n')
+      if (data) onEvent(JSON.parse(data) as AgentEvent)
+    }
+  }
 }

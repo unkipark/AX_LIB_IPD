@@ -1,6 +1,6 @@
 fastapi==0.115.6
 uvicorn==0.34.0
-pydantic==2.10.5
+pydantic==2.11.10
 pydantic-settings==2.7.1
 python-dotenv==1.0.1
 python-multipart==0.0.20
@@ -11,3 +11,7 @@ authlib==1.4.0
 httpx==0.28.1
 itsdangerous==2.2.0
 tzdata==2024.2
+# AI 도우미: MCP 서버. mcp 2.x 는 Starlette 1.x 를 요구해 FastAPI 0.115 와 맞지 않으므로 1.x 로 고정
+mcp==1.30.0
+starlette==0.41.3
+sse-starlette==2.4.1

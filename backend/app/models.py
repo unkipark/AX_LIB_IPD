@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -101,3 +101,37 @@ class UsageEvent(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     kind: Mapped[str] = mapped_column(String(20))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+
+class AgentConversation(Base):
+    """AI 도우미 대화. claude_session_id 로 Claude Code 세션을 이어갑니다(--resume)."""
+
+    __tablename__ = "agent_conversations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)  # uuid
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    title: Mapped[str] = mapped_column(String(100), default="새 대화")
+    claude_session_id: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    messages: Mapped[list[AgentMessage]] = relationship(
+        cascade="all, delete-orphan", order_by="AgentMessage.id"
+    )
+
+
+class AgentMessage(Base):
+    """대화 기록. 감사(audit)와 '사람들이 무엇을 찾는지' 분석에 씁니다."""
+
+    __tablename__ = "agent_messages"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    conversation_id: Mapped[str] = mapped_column(
+        ForeignKey("agent_conversations.id", ondelete="CASCADE"), index=True
+    )
+    role: Mapped[str] = mapped_column(String(20))  # user | assistant
+    content: Mapped[str] = mapped_column(Text, default="")
+    # assistant 메시지가 호출한 도구 [{name, input, isError}]
+    tools: Mapped[list | None] = mapped_column(JSON)
+    error: Mapped[str | None] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

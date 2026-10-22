@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -13,11 +14,21 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
-from . import auth
+from . import auth, mcp_server
 from .config import settings
-from .routers import admin, artifacts, dashboard
+from .routers import admin, agent, artifacts, dashboard
 
-app = FastAPI(title="AX 산출물 라이브러리", version="0.1.0")
+# MCP 앱은 lifespan 전에 만들어 둬야 session_manager 가 준비됩니다.
+_mcp_app = mcp_server.build_app()
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    async with mcp_server.mcp.session_manager.run():
+        yield
+
+
+app = FastAPI(title="AX 산출물 라이브러리", version="0.1.0", lifespan=lifespan)
 
 if settings.session_secret == "change-me":
     logging.getLogger("uvicorn.error").warning(
@@ -44,6 +55,9 @@ else:
 
     app.include_router(auth_local.router)
 app.include_router(admin.router)
+app.include_router(agent.router)
+# AI 도우미(Claude Code)가 부르는 MCP 서버. 끝의 / 까지 포함한 /mcp/ 로 접속합니다.
+app.mount("/mcp", _mcp_app)
 app.include_router(artifacts.router)
 app.include_router(dashboard.router)
 
