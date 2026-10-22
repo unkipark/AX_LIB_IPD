@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import datetime
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
@@ -10,8 +10,10 @@ from sqlalchemy.orm import Session
 
 from .. import catalog
 from ..auth import current_user
+from ..config import settings
 from ..db import get_db
 from ..models import Artifact, ArtifactTool, UsageEvent, User
+from .artifacts import NO_DEPARTMENT
 
 router = APIRouter(prefix="/api", tags=["dashboard"])
 
@@ -34,7 +36,8 @@ def _breakdown(counter: Counter, labels: dict[str, str]) -> list[dict]:
 
 @router.get("/dashboard")
 def dashboard(db: Session = Depends(get_db), _: User = Depends(current_user)):
-    now = datetime.now(timezone.utc)
+    tz = settings.tz
+    now = datetime.now(tz)
     months = _month_keys(now)
 
     artifacts = db.execute(
@@ -54,8 +57,8 @@ def dashboard(db: Session = Depends(get_db), _: User = Depends(current_user)):
         aid: n * (by_id[aid].time_saved_min or 0) for aid, n in uses_per_artifact.items() if aid in by_id
     }
 
-    created_per_month = Counter(a.created_at.strftime("%Y-%m") for a in artifacts)
-    used_per_month = Counter(u.created_at.strftime("%Y-%m") for u in used)
+    created_per_month = Counter(a.created_at.astimezone(tz).strftime("%Y-%m") for a in artifacts)
+    used_per_month = Counter(u.created_at.astimezone(tz).strftime("%Y-%m") for u in used)
 
     owners = Counter(a.owner_id for a in artifacts)
     owner_rows = {
@@ -80,8 +83,8 @@ def dashboard(db: Session = Depends(get_db), _: User = Depends(current_user)):
         "byType": _breakdown(Counter(a.type for a in artifacts), catalog.ARTIFACT_TYPES),
         "byTool": _breakdown(tools, catalog.AI_TOOLS),
         "byDepartment": [
-            {"key": d, "label": d, "count": n}
-            for d, n in Counter(a.department or "미지정" for a in artifacts).most_common()
+            {"key": d or NO_DEPARTMENT, "label": d or "미지정", "count": n}
+            for d, n in Counter(a.department for a in artifacts).most_common()
         ],
         "monthly": [
             {"month": m, "created": created_per_month.get(m, 0), "used": used_per_month.get(m, 0)} for m in months

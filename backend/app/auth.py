@@ -100,14 +100,14 @@ async def callback(request: Request, db: Session = Depends(get_db)):
 
     user = upsert_user(db, claims)
     next_url = request.session.pop("next", "/")
+    # id_token 은 세션에 넣지 않습니다. 쿠키 세션이라 claim 이 많은 토큰이면 4KB 를 넘겨
+    # 브라우저가 쿠키를 버리고, 로그인이 무한 반복됩니다.
     request.session["uid"] = user.id
-    request.session["id_token"] = token.get("id_token")
     return RedirectResponse(_safe_next(next_url))
 
 
 @router.get("/logout")
 async def logout(request: Request):
-    id_token = request.session.get("id_token")
     request.session.clear()
     try:
         metadata = await oauth.sso.load_server_metadata()
@@ -115,9 +115,10 @@ async def logout(request: Request):
     except Exception:  # noqa: BLE001
         end_session = None
     if end_session:
-        params = {"post_logout_redirect_uri": settings.public_base_url.rstrip("/") + "/"}
-        if id_token:
-            params["id_token_hint"] = id_token
+        params = {
+            "client_id": settings.oidc_client_id,
+            "post_logout_redirect_uri": settings.public_base_url.rstrip("/") + "/",
+        }
         return RedirectResponse(f"{end_session}?{urlencode(params)}")
     return RedirectResponse("/")
 

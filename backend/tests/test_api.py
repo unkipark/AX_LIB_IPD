@@ -96,3 +96,30 @@ def test_login_rejects_open_redirect():
     from app.auth import _safe_next
     assert _safe_next("//evil.com") == "/" and _safe_next("https://evil.com") == "/"
     assert _safe_next("/artifacts/3?x=1") == "/artifacts/3?x=1"
+
+
+def test_no_department_filter_matches_dashboard_key(client, login, db):
+    user = login("u1", "홍길동", dept=None)
+    client.post("/api/artifacts", json=ART)
+    row = client.get("/api/dashboard").json()["byDepartment"][0]
+    assert row["label"] == "미지정" and row["count"] == 1
+    assert client.get("/api/artifacts", params={"department": row["key"]}).json()["total"] == 1
+    assert user.department is None
+
+
+def test_used_day_boundary_follows_configured_timezone(client, login, db, monkeypatch):
+    """KST 00:30 은 UTC 로는 전날 15:30 이지만, 사용 기록 '오늘' 기준은 KST 날짜여야 합니다."""
+    from datetime import timedelta
+
+    from app.models import UsageEvent
+    from app.routers import artifacts as mod
+
+    user = login()
+    aid = client.post("/api/artifacts", json=ART).json()["id"]
+    kst_midnight = mod._today_start()
+    assert kst_midnight.utcoffset() == timedelta(hours=9)
+    # 어제(KST) 23:50 기록은 오늘 기록으로 치지 않습니다.
+    db.add(UsageEvent(artifact_id=aid, user_id=user.id, kind="used", created_at=kst_midnight - timedelta(minutes=10)))
+    db.commit()
+    assert client.get(f"/api/artifacts/{aid}").json()["usedByMeToday"] is False
+    assert client.post(f"/api/artifacts/{aid}/used").json() == {"useCount": 2}

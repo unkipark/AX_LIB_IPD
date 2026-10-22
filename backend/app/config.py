@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -16,6 +17,8 @@ class Settings(BaseSettings):
     # 브라우저가 접속하는 주소. OIDC redirect_uri 를 만드는 데 씁니다.
     #   예) http://10.10.1.20:8000  또는  https://ax-lib.사내도메인
     public_base_url: str = "http://localhost:8000"
+    # "하루 1회" 사용 기록과 현황판 월별 집계의 기준 시간대
+    timezone: str = "Asia/Seoul"
 
     # ---------- DB ----------
     database_url: str = "postgresql+psycopg://axlib:axlib@localhost:5432/axlib"
@@ -49,6 +52,10 @@ class Settings(BaseSettings):
 
     # 관리자 지정. 로그인 시 id claim 또는 사번이 목록에 있으면 admin 권한이 붙습니다.
     admin_ids: str = ""
+
+    @property
+    def tz(self) -> ZoneInfo:
+        return ZoneInfo(self.timezone)
 
     @property
     def admin_id_set(self) -> set[str]:

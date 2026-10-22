@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -17,6 +18,11 @@ from .config import settings
 from .routers import artifacts, dashboard
 
 app = FastAPI(title="AX 산출물 라이브러리", version="0.1.0")
+
+if settings.session_secret == "change-me":
+    logging.getLogger("uvicorn.error").warning(
+        "SESSION_SECRET 가 기본값입니다. 세션 위조를 막으려면 .env 에서 긴 난수로 바꾸세요."
+    )
 
 app.add_middleware(
     SessionMiddleware,

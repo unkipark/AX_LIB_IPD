@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import shutil
 import uuid
-from datetime import datetime, time, timezone
+from datetime import datetime, time
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
@@ -28,8 +28,13 @@ def get_meta():
 
 # ---------- 헬퍼 ----------
 
+# 부서 정보가 없는 산출물을 가리키는 필터 값 (현황판 '미지정' 막대에서 넘어옵니다)
+NO_DEPARTMENT = "__none__"
+
+
 def _today_start() -> datetime:
-    return datetime.combine(datetime.now(timezone.utc).date(), time.min, tzinfo=timezone.utc)
+    """설정된 시간대(기본 KST) 기준 오늘 0시."""
+    return datetime.combine(datetime.now(settings.tz).date(), time.min, tzinfo=settings.tz)
 
 
 def _counts(db: Session, ids: list[int], kind: str) -> dict[int, int]:
@@ -128,7 +133,9 @@ def list_artifacts(
         stmt = stmt.where(Artifact.status == status)
     if tool:
         stmt = stmt.where(Artifact.id.in_(select(ArtifactTool.artifact_id).where(ArtifactTool.tool == tool)))
-    if department:
+    if department == NO_DEPARTMENT:
+        stmt = stmt.where(Artifact.department.is_(None))
+    elif department:
         stmt = stmt.where(Artifact.department == department)
     if mine:
         stmt = stmt.where(Artifact.owner_id == user.id)
