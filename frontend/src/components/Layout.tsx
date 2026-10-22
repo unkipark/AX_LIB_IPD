@@ -13,6 +13,7 @@ const NAV = [
 ]
 
 export function Layout({ user, theme }: { user: User; theme: ReturnType<typeof useTheme> }) {
+  const nav = user.role === 'admin' ? [...NAV, { to: '/admin/users', label: '사용자 관리', end: false }] : NAV
   return (
     <div className="flex min-h-full flex-col">
       <header className="sticky top-0 z-10 flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-line bg-panel px-4 py-2.5">
@@ -24,7 +25,7 @@ export function Layout({ user, theme }: { user: User; theme: ReturnType<typeof u
         <Separator orientation="vertical" className="h-5" />
 
         <nav className="flex items-center gap-1">
-          {NAV.map((n) => (
+          {nav.map((n) => (
             <NavLink
               key={n.to}
               to={n.to}
@@ -54,11 +55,11 @@ export function Layout({ user, theme }: { user: User; theme: ReturnType<typeof u
             onTheme={theme.setTheme}
             onPalette={theme.setPalette}
           />
-          <span className="text-xs text-inkMuted">
+          <NavLink to="/me" className="rounded-panel px-1.5 py-1 text-xs text-inkMuted hover:bg-panelRaised" title="내 정보">
             <span className="text-ink">{user.name}</span>
             {user.department && <span> · {user.department}</span>}
             {user.role === 'admin' && <span className="ml-1 text-accent">(관리자)</span>}
-          </span>
+          </NavLink>
           <Button asChild variant="ghost" size="icon" title="로그아웃">
             <a href="/api/auth/logout" aria-label="로그아웃">
               <LogOut />

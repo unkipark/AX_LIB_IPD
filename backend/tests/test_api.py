@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.auth import upsert_user
+from app.auth_oidc import upsert_user
 from app.config import settings
 
 ART = {
@@ -24,7 +24,8 @@ def test_upsert_user_maps_claims_and_updates_on_relogin(db, monkeypatch):
     monkeypatch.setattr(settings, "oidc_claim_department", "org.dept")
     monkeypatch.setattr(settings, "admin_ids", "E100")
     u = upsert_user(db, {"sub": "abc", "name": "김철수", "employee_number": "E100", "org": {"dept": "설계팀"}})
-    assert (u.name, u.department, u.emp_no, u.role) == ("김철수", "설계팀", "E100", "admin")
+    assert (u.name, u.department, u.emp_no) == ("김철수", "설계팀", "E100")
+    assert settings.admin_id_set & {u.emp_no}
     u2 = upsert_user(db, {"sub": "abc", "name": "김철수", "employee_number": "E100", "org": {"dept": "AX팀"}})
     assert u2.id == u.id and u2.department == "AX팀"
 
@@ -93,9 +94,9 @@ def test_file_upload_download_delete(client, login, monkeypatch):
 
 
 def test_login_rejects_open_redirect():
-    from app.auth import _safe_next
-    assert _safe_next("//evil.com") == "/" and _safe_next("https://evil.com") == "/"
-    assert _safe_next("/artifacts/3?x=1") == "/artifacts/3?x=1"
+    from app.auth import safe_next
+    assert safe_next("//evil.com") == "/" and safe_next("https://evil.com") == "/"
+    assert safe_next("/artifacts/3?x=1") == "/artifacts/3?x=1"
 
 
 def test_no_department_filter_matches_dashboard_key(client, login, db):

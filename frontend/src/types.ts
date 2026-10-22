@@ -9,8 +9,15 @@ export interface Meta {
   tools: Option[]
 }
 
+export interface AuthConfig {
+  mode: 'local' | 'oidc'
+  signup: boolean
+  departments: string[]
+}
+
 export interface User {
   id: number
+  loginId: string | null
   name: string
   email: string | null
   department: string | null
@@ -112,4 +119,25 @@ export interface Dashboard {
   topUsed: (ArtifactRef & { uses: number; savedHours: number })[]
   topContributors: { id: number; name: string; department: string | null; count: number }[]
   recent: (ArtifactRef & { createdAt: string })[]
+}
+
+export interface SignupInput {
+  loginId: string
+  password: string
+  name: string
+  department: string | null
+  email: string | null
+}
+
+export interface AdminUser {
+  id: number
+  loginId: string | null
+  empNo: string | null
+  name: string
+  email: string | null
+  department: string | null
+  role: 'user' | 'admin'
+  isActive: boolean
+  lastLoginAt: string | null
+  artifactCount: number
 }

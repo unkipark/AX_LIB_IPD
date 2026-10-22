@@ -19,7 +19,8 @@ os.environ["STATIC_DIR"] = "/nonexistent"
 
 from fastapi.testclient import TestClient  # noqa: E402
 
-from app.auth import current_user, upsert_user  # noqa: E402
+from app.auth import current_user  # noqa: E402
+from app.auth_oidc import upsert_user  # noqa: E402
 from app.config import settings  # noqa: E402
 from app.db import Base, SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
@@ -27,6 +28,9 @@ from app.main import app  # noqa: E402
 
 @pytest.fixture(autouse=True)
 def _db(tmp_path):
+    from app import auth_local
+
+    auth_local._failures.clear()
     settings.upload_dir = tmp_path / "uploads"
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
@@ -42,7 +46,9 @@ def db():
 
 
 def make_user(db, ext_id: str, name: str, dept: str = "AX팀"):
-    return upsert_user(db, {"sub": ext_id, "name": name, "department": dept})
+    user = upsert_user(db, {"sub": ext_id, "name": name, "department": dept})
+    db.commit()
+    return user
 
 
 @pytest.fixture

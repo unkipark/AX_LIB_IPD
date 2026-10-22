@@ -1,15 +1,12 @@
-"""사내 SSO(OIDC) 로그인과 현재 사용자 의존성.
+"""인증 공통: 세션, 현재 사용자, 내 정보, 인증 방식 안내.
 
-흐름: /api/auth/login → IdP 로그인 → /api/auth/callback → users 테이블 upsert →
-세션 쿠키에 uid 저장. 이름·부서는 매 로그인마다 IdP 값으로 갱신되므로 조직 개편이
-자동 반영됩니다.
+로그인 방식은 AUTH_MODE 로 고릅니다.
+  local → auth_local.py (사번 + 비밀번호)
+  oidc  → auth_oidc.py  (사내 SSO)
+어느 쪽이든 로그인에 성공하면 세션 쿠키에 uid 하나만 저장합니다.
 """
 from __future__ import annotations
 
-from typing import Any
-from urllib.parse import urlencode
-
-from authlib.integrations.starlette_client import OAuth, OAuthError
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
@@ -18,122 +15,94 @@ from sqlalchemy.orm import Session
 from .config import settings
 from .db import get_db
 from .models import User, utcnow
-from .schemas import UserOut
+from .passwords import hash_password, verify_password
+from .schemas import PasswordChangeIn, ProfileIn, UserOut
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
-
-oauth = OAuth()
-_client_kwargs: dict[str, Any] = {"scope": settings.oidc_scopes}
-if settings.oidc_ca_bundle:
-    _client_kwargs["verify"] = settings.oidc_ca_bundle
-oauth.register(
-    name="sso",
-    client_id=settings.oidc_client_id,
-    client_secret=settings.oidc_client_secret,
-    server_metadata_url=settings.oidc_discovery_url,
-    client_kwargs=_client_kwargs,
-)
+me_router = APIRouter(prefix="/api", tags=["auth"])
 
 
-def _claim(claims: dict[str, Any], path: str) -> str | None:
-    """'org.department' 처럼 점으로 구분된 중첩 claim 도 읽습니다."""
-    cur: Any = claims
-    for part in path.split("."):
-        if not isinstance(cur, dict) or part not in cur:
-            return None
-        cur = cur[part]
-    if cur is None:
-        return None
-    return str(cur).strip() or None
-
-
-def _safe_next(next_url: str | None) -> str:
+def safe_next(next_url: str | None) -> str:
     # 오픈 리다이렉트 방지: 같은 오리진의 경로만 허용합니다.
     if next_url and next_url.startswith("/") and not next_url.startswith("//"):
         return next_url
     return "/"
 
 
-def upsert_user(db: Session, claims: dict[str, Any]) -> User:
-    external_id = _claim(claims, settings.oidc_claim_id)
-    if not external_id:
-        raise HTTPException(400, f"SSO 응답에 사용자 식별자({settings.oidc_claim_id})가 없습니다")
-
-    emp_no = _claim(claims, settings.oidc_claim_emp_no)
-    user = db.scalar(select(User).where(User.external_id == external_id))
-    if user is None:
-        user = User(external_id=external_id)
-        db.add(user)
-
-    user.emp_no = emp_no
-    user.name = _claim(claims, settings.oidc_claim_name) or external_id
-    user.email = _claim(claims, settings.oidc_claim_email)
-    user.department = _claim(claims, settings.oidc_claim_department)
-    user.last_login_at = utcnow()
-    if settings.admin_id_set & {external_id, emp_no or ""}:
+def start_session(request: Request, db: Session, user: User) -> None:
+    """로그인 성공 처리. ADMIN_IDS 에 있으면 관리자 권한을 붙입니다."""
+    if settings.admin_id_set & {user.login_id or "", user.emp_no or "", user.external_id or ""}:
         user.role = "admin"
-    elif user.role is None:
+    elif not user.role:
         user.role = "user"
+    user.last_login_at = utcnow()
     db.commit()
-    return user
-
-
-@router.get("/login")
-async def login(request: Request, next: str | None = None):
-    request.session["next"] = _safe_next(next)
-    return await oauth.sso.authorize_redirect(request, settings.oidc_redirect_uri)
-
-
-@router.get("/callback")
-async def callback(request: Request, db: Session = Depends(get_db)):
-    try:
-        token = await oauth.sso.authorize_access_token(request)
-    except OAuthError as e:
-        raise HTTPException(401, f"SSO 로그인에 실패했습니다: {e.error}") from e
-
-    claims: dict[str, Any] = dict(token.get("userinfo") or {})
-    # 부서 같은 확장 claim 은 id_token 이 아니라 userinfo 에만 담아주는 IdP 가 많습니다.
-    try:
-        claims.update(await oauth.sso.userinfo(token=token))
-    except Exception:  # noqa: BLE001 — userinfo 엔드포인트가 없는 IdP 도 있습니다.
-        pass
-
-    user = upsert_user(db, claims)
-    next_url = request.session.pop("next", "/")
-    # id_token 은 세션에 넣지 않습니다. 쿠키 세션이라 claim 이 많은 토큰이면 4KB 를 넘겨
-    # 브라우저가 쿠키를 버리고, 로그인이 무한 반복됩니다.
-    request.session["uid"] = user.id
-    return RedirectResponse(_safe_next(next_url))
-
-
-@router.get("/logout")
-async def logout(request: Request):
     request.session.clear()
-    try:
-        metadata = await oauth.sso.load_server_metadata()
-        end_session = metadata.get("end_session_endpoint")
-    except Exception:  # noqa: BLE001
-        end_session = None
-    if end_session:
-        params = {
-            "client_id": settings.oidc_client_id,
-            "post_logout_redirect_uri": settings.public_base_url.rstrip("/") + "/",
-        }
-        return RedirectResponse(f"{end_session}?{urlencode(params)}")
-    return RedirectResponse("/")
+    request.session["uid"] = user.id
 
 
 def current_user(request: Request, db: Session = Depends(get_db)) -> User:
     uid = request.session.get("uid")
     user = db.get(User, uid) if uid else None
-    if user is None:
+    if user is None or not user.is_active:
         raise HTTPException(401, "로그인이 필요합니다")
     return user
 
 
-me_router = APIRouter(prefix="/api", tags=["auth"])
+def require_admin(user: User = Depends(current_user)) -> User:
+    if user.role != "admin":
+        raise HTTPException(403, "관리자만 사용할 수 있습니다")
+    return user
+
+
+def _require_local() -> None:
+    if settings.auth_mode != "local":
+        raise HTTPException(400, "SSO 로 로그인하는 환경에서는 사내 시스템에서 정보를 변경하세요")
+
+
+@router.get("/config")
+def auth_config(db: Session = Depends(get_db)):
+    """로그인 전에 프론트엔드가 읽는 정보. 가입·내 정보 화면의 부서 자동완성 목록도 함께 줍니다.
+    부서 표기가 사람마다 달라지면 현황판의 부서별 집계가 갈라지므로, 기존 표기를 고르도록 유도합니다."""
+    departments: list[str] = []
+    if settings.auth_mode == "local":
+        departments = sorted(
+            d for (d,) in db.execute(select(User.department).where(User.department.is_not(None)).distinct())
+        )
+    return {"mode": settings.auth_mode, "signup": settings.local_signup, "departments": departments}
+
+
+@router.get("/logout")
+async def logout(request: Request):
+    request.session.clear()
+    if settings.auth_mode == "oidc":
+        from .auth_oidc import end_session_url
+
+        url = await end_session_url()
+        if url:
+            return RedirectResponse(url)
+        return RedirectResponse("/")
+    return RedirectResponse("/login")
 
 
 @me_router.get("/me", response_model=UserOut)
 def me(user: User = Depends(current_user)):
     return user
+
+
+@me_router.put("/me", response_model=UserOut)
+def update_me(body: ProfileIn, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    """local 모드에서 본인 이름·부서·이메일 변경. 이미 등록한 산출물의 부서는 바뀌지 않습니다."""
+    _require_local()
+    user.name, user.department, user.email = body.name, body.department, body.email
+    db.commit()
+    return user
+
+
+@me_router.put("/me/password", status_code=204)
+def change_password(body: PasswordChangeIn, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    _require_local()
+    if not verify_password(body.current_password, user.password_hash):
+        raise HTTPException(400, "현재 비밀번호가 올바르지 않습니다")
+    user.password_hash = hash_password(body.new_password)
+    db.commit()

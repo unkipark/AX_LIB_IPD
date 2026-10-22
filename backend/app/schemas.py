@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
@@ -15,11 +16,86 @@ class ApiModel(BaseModel):
 
 class UserOut(ApiModel):
     id: int
+    login_id: str | None
     name: str
     email: str | None
     department: str | None
     emp_no: str | None
     role: str
+
+
+# ---------- 인증 ----------
+
+LOGIN_ID_PATTERN = r"^[A-Za-z0-9._-]{2,50}$"
+
+
+def _blank_to_none(v: str | None) -> str | None:
+    v = (v or "").strip()
+    return v or None
+
+
+class LoginIn(ApiModel):
+    login_id: str = Field(min_length=1, max_length=50)
+    password: str = Field(min_length=1, max_length=128)
+
+    @field_validator("login_id")
+    @classmethod
+    def _strip(cls, v: str) -> str:
+        return v.strip()
+
+
+class ProfileIn(ApiModel):
+    name: str = Field(min_length=1, max_length=100)
+    department: str | None = Field(default=None, max_length=200)
+    email: str | None = Field(default=None, max_length=200)
+
+    @field_validator("name")
+    @classmethod
+    def _name(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("이름을 입력하세요")
+        return v.strip()
+
+    @field_validator("department", "email")
+    @classmethod
+    def _optional(cls, v: str | None) -> str | None:
+        return _blank_to_none(v)
+
+
+class SignupIn(ProfileIn):
+    login_id: str = Field(pattern=LOGIN_ID_PATTERN, description="사번")
+    password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("login_id", mode="before")
+    @classmethod
+    def _strip_id(cls, v: str) -> str:
+        return v.strip() if isinstance(v, str) else v
+
+
+class PasswordChangeIn(ApiModel):
+    current_password: str = Field(max_length=128)
+    new_password: str = Field(min_length=8, max_length=128)
+
+
+class AdminUserOut(ApiModel):
+    id: int
+    login_id: str | None
+    emp_no: str | None
+    name: str
+    email: str | None
+    department: str | None
+    role: str
+    is_active: bool
+    last_login_at: datetime | None
+    artifact_count: int
+
+
+class AdminUserUpdate(ApiModel):
+    role: Literal["user", "admin"] | None = None
+    is_active: bool | None = None
+
+
+# ---------- 산출물 ----------
 
 
 class OwnerOut(ApiModel):

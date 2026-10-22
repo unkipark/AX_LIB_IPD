@@ -15,7 +15,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from . import auth
 from .config import settings
-from .routers import artifacts, dashboard
+from .routers import admin, artifacts, dashboard
 
 app = FastAPI(title="AX 산출물 라이브러리", version="0.1.0")
 
@@ -35,6 +35,15 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(auth.me_router)
+if settings.auth_mode == "oidc":
+    from . import auth_oidc
+
+    app.include_router(auth_oidc.router)
+else:
+    from . import auth_local
+
+    app.include_router(auth_local.router)
+app.include_router(admin.router)
 app.include_router(artifacts.router)
 app.include_router(dashboard.router)
 

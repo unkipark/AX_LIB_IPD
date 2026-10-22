@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -14,19 +14,24 @@ def utcnow() -> datetime:
 
 
 class User(Base):
-    """SSO 로그인 시 자동 생성·갱신됩니다. 이름·부서는 매 로그인마다 IdP 값으로 덮어씁니다."""
+    """local 모드: 가입 시 생성되고 이름·부서는 본인이 관리합니다.
+    oidc 모드: SSO 로그인 시 자동 생성·갱신되고, 이름·부서는 매 로그인마다 IdP 값으로 덮어씁니다.
+    두 방식은 사번(emp_no)으로 이어집니다."""
 
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    external_id: Mapped[str] = mapped_column(String(200), unique=True)  # OIDC id claim (기본 sub)
-    emp_no: Mapped[str | None] = mapped_column(String(50))
+    external_id: Mapped[str | None] = mapped_column(String(200), unique=True)  # OIDC id claim (기본 sub)
+    login_id: Mapped[str | None] = mapped_column(String(50), unique=True)  # local 로그인 ID (= 사번)
+    password_hash: Mapped[str | None] = mapped_column(String(200))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    emp_no: Mapped[str | None] = mapped_column(String(50), index=True)
     name: Mapped[str] = mapped_column(String(100))
     email: Mapped[str | None] = mapped_column(String(200))
     department: Mapped[str | None] = mapped_column(String(200))
     role: Mapped[str] = mapped_column(String(20), default="user")  # user | admin
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    last_login_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # 관리자가 만든 뒤 아직 로그인 전이면 비어 있음
 
 
 class Artifact(Base):

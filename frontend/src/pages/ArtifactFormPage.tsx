@@ -116,7 +116,7 @@ export function ArtifactFormPage() {
     <form onSubmit={submit} className="mx-auto flex max-w-4xl flex-col gap-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">{editId ? '산출물 수정' : '산출물 등록'}</h2>
-        <p className="text-xs text-inkMuted">등록자·부서는 SSO 정보로 자동 입력됩니다.</p>
+        <p className="text-xs text-inkMuted">등록자·부서는 계정 정보로 자동 입력됩니다.</p>
       </div>
 
       <Card>
